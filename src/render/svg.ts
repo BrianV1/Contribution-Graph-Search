@@ -37,11 +37,6 @@ const T = {
 const f = (n: number): string =>
   (Math.round((Number.isFinite(n) ? n : 0) * 100) / 100).toString();
 
-const escapeXml = (s: string): string =>
-  s.replace(/[<>&'"]/g, (c) =>
-    c === '<' ? '&lt;' : c === '>' ? '&gt;' : c === '&' ? '&amp;' : c === "'" ? '&apos;' : '&quot;',
-  );
-
 export function renderSvg(sim: Simulation, config: SimConfig, theme: Theme): string {
   const { grid } = sim;
   const width = MARGIN.left + grid.width * PITCH + MARGIN.right;
@@ -61,7 +56,7 @@ export function renderSvg(sim: Simulation, config: SimConfig, theme: Theme): str
   );
   parts.push(defs(theme));
   parts.push(background(width, height, grid, gx, gy, theme));
-  parts.push(hud(width, height, sim, config, theme));
+  parts.push(hud(width, height, config, theme));
   parts.push(contributionCells(grid, gx, gy, theme));
   parts.push(searchLayer(sim, gx, gy, dur, theme));
   parts.push(pathLayer(sim, gx, gy, dur, theme));
@@ -303,36 +298,11 @@ function robot(
   </g>`;
 }
 
-/** Robotics-styled HUD: title, telemetry, corner brackets, status bar. */
-function hud(
-  width: number,
-  height: number,
-  sim: Simulation,
-  config: SimConfig,
-  theme: Theme,
-): string {
-  let obstacles = 0;
-  let free = 0;
-  for (let col = 0; col < sim.grid.width; col++) {
-    for (let row = 0; row < sim.grid.height; row++) {
-      if (sim.grid.isObstacle(col, row)) obstacles++;
-      else free++;
-    }
-  }
-  const routeLen = sim.route.length;
-
-  const titleY = 30;
+/** HUD: a slim drive-progress bar synced to the robot's traversal. */
+function hud(width: number, height: number, config: SimConfig, theme: Theme): string {
   const barY = height - 26;
 
   return `<g>
-    <text x="26" y="${titleY}" fill="${theme.robotAccent}" font-size="15" font-weight="700"
-          letter-spacing="2">CONTRIBUTION-GRAPH SLAM</text>
-
-    <line x1="26" y1="${barY - 12}" x2="${width - 26}" y2="${barY - 12}" stroke="${theme.hudDim}" stroke-width="1"/>
-    <text x="26" y="${barY}" fill="${theme.hud}" font-size="10" letter-spacing="0.5">${escapeXml(
-      `GRID ${sim.grid.width}×${sim.grid.height}   OBSTACLES ${obstacles}   FREE ${free}   NODES ${sim.visitedOrder.length}   ROUTE ${routeLen}`,
-    )}</text>
-
     <rect x="26" y="${barY + 4}" width="${width - 52}" height="2" rx="1" fill="${theme.hudDim}"/>
     <rect x="26" y="${barY + 4}" width="${width - 52}" height="2" rx="1" fill="${theme.robotAccent}">
       <animate attributeName="width" dur="${config.motion.durationSeconds}s" repeatCount="indefinite"
