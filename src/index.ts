@@ -8,7 +8,11 @@
  *   tsx src/index.ts --user <login> [options]
  *   tsx src/index.ts --demo                 # offline, no token required
  *
+ * Configuration is layered — later sources override earlier ones:
+ *   built-in defaults  <  robot.config.json  <  CLI flags / env
+ *
  * Options:
+ *   --config <path>              config file (default: robot.config.json if present)
  *   --user, --username <login>   GitHub login (or env GITHUB_USERNAME)
  *   --behavior <name>            escape | explore | wander | patrol | wall_follow
  *   --planner <name>             astar | dijkstra
@@ -23,7 +27,8 @@
  * works). Not needed with --demo.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { DEFAULT_CONFIG, type BehaviorName, type PlannerName, type SimConfig } from './types.js';
@@ -59,6 +64,36 @@ function parseArgs(argv: string[]): Args {
 const str = (v: string | boolean | undefined): string | undefined =>
   typeof v === 'string' ? v : undefined;
 
+/** Shape of the optional `robot.config.json`. Every field is optional. */
+interface FileConfig {
+  username?: string;
+  behavior?: BehaviorName;
+  planner?: PlannerName;
+  lidar?: { beamCount?: number; range?: number };
+  motion?: { durationSeconds?: number; lidarSamples?: number; allowDiagonal?: boolean };
+  seed?: number;
+}
+
+/**
+ * Load a config file. Defaults to `robot.config.json` at the repo root; a
+ * missing default file is fine (returns `{}`), but an explicitly-passed
+ * `--config` path that doesn't exist (or is invalid JSON) is an error.
+ */
+async function loadConfigFile(path: string | undefined): Promise<FileConfig> {
+  const resolved = resolve(path ?? 'robot.config.json');
+  if (!existsSync(resolved)) {
+    if (path) throw new Error(`Config file not found: ${resolved}`);
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(await readFile(resolved, 'utf8')) as FileConfig;
+    console.log(`▸ loaded config ${resolved}`);
+    return parsed;
+  } catch (e) {
+    throw new Error(`Invalid config file ${resolved}: ${e instanceof Error ? e.message : e}`);
+  }
+}
+
 /** Day-of-year makes the seed roll over daily, so the run varies each day. */
 function dayOfYearSeed(): number {
   const now = new Date();
@@ -71,26 +106,36 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
 
   const demo = args.demo === true;
+
+  // Configuration is layered, later sources win:
+  //   DEFAULT_CONFIG  <  robot.config.json  <  CLI flags / env
+  const file = await loadConfigFile(str(args.config));
+
   const username =
-    str(args.user) ?? str(args.username) ?? process.env.GITHUB_USERNAME ?? (demo ? 'octocat' : '');
+    str(args.user) ??
+    str(args.username) ??
+    process.env.GITHUB_USERNAME ??
+    file.username ??
+    (demo ? 'octocat' : '');
   if (!username) {
-    throw new Error('Provide --user <login> or set GITHUB_USERNAME (or use --demo).');
+    throw new Error('Provide --user <login>, set GITHUB_USERNAME, add "username" to robot.config.json, or use --demo.');
   }
 
   const config: SimConfig = {
-    ...DEFAULT_CONFIG,
     username,
-    behavior: (str(args.behavior) as BehaviorName) ?? DEFAULT_CONFIG.behavior,
-    planner: (str(args.planner) as PlannerName) ?? DEFAULT_CONFIG.planner,
+    behavior: (str(args.behavior) as BehaviorName) ?? file.behavior ?? DEFAULT_CONFIG.behavior,
+    planner: (str(args.planner) as PlannerName) ?? file.planner ?? DEFAULT_CONFIG.planner,
     lidar: {
-      beamCount: args.beams ? Number(args.beams) : DEFAULT_CONFIG.lidar.beamCount,
-      range: args.range ? Number(args.range) : DEFAULT_CONFIG.lidar.range,
+      beamCount: args.beams ? Number(args.beams) : file.lidar?.beamCount ?? DEFAULT_CONFIG.lidar.beamCount,
+      range: args.range ? Number(args.range) : file.lidar?.range ?? DEFAULT_CONFIG.lidar.range,
     },
     motion: {
-      ...DEFAULT_CONFIG.motion,
-      durationSeconds: args.duration ? Number(args.duration) : DEFAULT_CONFIG.motion.durationSeconds,
+      durationSeconds:
+        args.duration ? Number(args.duration) : file.motion?.durationSeconds ?? DEFAULT_CONFIG.motion.durationSeconds,
+      lidarSamples: file.motion?.lidarSamples ?? DEFAULT_CONFIG.motion.lidarSamples,
+      allowDiagonal: file.motion?.allowDiagonal ?? DEFAULT_CONFIG.motion.allowDiagonal,
     },
-    seed: args.seed ? Number(args.seed) : dayOfYearSeed(),
+    seed: args.seed ? Number(args.seed) : file.seed ?? dayOfYearSeed(),
   };
 
   console.log(`▸ behavior=${config.behavior} planner=${config.planner} seed=${config.seed}`);

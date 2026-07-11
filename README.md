@@ -13,12 +13,54 @@ robot navigates with real path-planning:
 Everything renders to a **self-contained animated SVG** (SMIL only, no
 JavaScript) so it embeds directly in your README, in both light and dark themes.
 
-<!-- Point these at your own `output` branch once the Action has run once. -->
+<!-- Replace <OWNER>/<REPO> with your fork, e.g. octocat/Contribution-Graph-Search -->
 <picture>
-  <source media="(prefers-color-scheme: dark)"  srcset="https://raw.githubusercontent.com/OWNER/REPO/output/robot-dark.svg">
-  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/OWNER/REPO/output/robot-light.svg">
-  <img alt="A LIDAR robot pathfinding across a GitHub contribution graph" src="https://raw.githubusercontent.com/OWNER/REPO/output/robot-dark.svg" width="100%">
+  <source media="(prefers-color-scheme: dark)"  srcset="https://raw.githubusercontent.com/<OWNER>/<REPO>/output/robot-dark.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/<OWNER>/<REPO>/output/robot-light.svg">
+  <img alt="A LIDAR robot pathfinding across a GitHub contribution graph" src="https://raw.githubusercontent.com/<OWNER>/<REPO>/output/robot-dark.svg" width="100%">
 </picture>
+
+---
+
+## Use it on your own profile
+
+This repo is a **template** — it automatically visualises whoever owns the fork,
+because the workflow reads `github.repository_owner`. You never edit any code.
+
+1. **Get your own copy.** Click **Use this template ▸ Create a new repository**
+   (or fork). Any repo name works; a repo named exactly after your username is a
+   [special profile repo](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/managing-your-profile-readme).
+2. **Allow the workflow to publish.** In your new repo: **Settings ▸ Actions ▸
+   General ▸ Workflow permissions ▸ Read and write permissions ▸ Save.**
+3. **Run it once.** **Actions** tab ▸ enable workflows ▸
+   *Generate contribution-graph animation* ▸ **Run workflow**. This creates an
+   `output` branch containing `robot-dark.svg` and `robot-light.svg`. After
+   that it self-updates daily.
+4. **Embed it** in your profile `README.md` (the one in `<username>/<username>`)
+   with the `<picture>` block above, replacing `<OWNER>/<REPO>` with the repo you
+   just created — for example
+   `https://raw.githubusercontent.com/octocat/Contribution-Graph-Search/output/robot-dark.svg`.
+
+That's it. No token to create (the built-in `GITHUB_TOKEN` covers your own
+public graph), nothing to run locally.
+
+### Customize (optional)
+
+Edit [`robot.config.json`](robot.config.json) and commit — the workflow
+regenerates on push. No code changes:
+
+```jsonc
+{
+  "behavior": "escape",     // escape | explore | wander | patrol | wall_follow
+  "planner": "astar",       // astar | dijkstra
+  "lidar":  { "beamCount": 40, "range": 5.5 },
+  "motion": { "durationSeconds": 14, "lidarSamples": 44, "allowDiagonal": true }
+}
+```
+
+The bundled JSON schema gives you autocomplete and validation in most editors.
+You can also override `behavior`/`planner` for a single run from the
+**Run workflow** dialog.
 
 ---
 
@@ -44,8 +86,8 @@ SMIL so the scan stays faithful to the map as the robot moves.
 
 ## Behaviors
 
-Selected with `--behavior` (or the workflow input). Configured through a single
-[`SimConfig`](src/types.ts) object.
+Set `behavior` in [`robot.config.json`](robot.config.json) (or `--behavior` on
+the CLI). Everything is driven by one [`SimConfig`](src/types.ts) object.
 
 | Behavior      | Description                                                             |
 | ------------- | --------------------------------------------------------------------- |
@@ -118,7 +160,8 @@ npm run demo            # generate light+dark SVGs from synthetic data → dist/
 npm run typecheck       # strict TypeScript, no emit
 ```
 
-Try the behaviors offline (no token, no network):
+`npm run demo` needs no token or network — it uses built-in synthetic data.
+Try the behaviors (flags override `robot.config.json`):
 
 ```bash
 npx tsx src/index.ts --demo --behavior explore
@@ -130,38 +173,40 @@ Against a real account:
 
 ```bash
 GITHUB_TOKEN=<token-with-read:user> \
-  npx tsx src/index.ts --user your-login --behavior escape
+  npx tsx src/index.ts --user your-login
 ```
 
 ### CLI options
 
-| Flag                     | Default          | Notes                                   |
-| ------------------------ | ---------------- | --------------------------------------- |
-| `--user`, `--username`   | `$GITHUB_USERNAME` | GitHub login                          |
-| `--behavior`             | `escape`         | see table above                         |
-| `--planner`              | `astar`          | `astar` \| `dijkstra`                   |
-| `--beams`                | `40`             | LIDAR beams per 360° scan               |
-| `--range`                | `5.5`            | LIDAR range in cells                    |
-| `--duration`             | `14`             | animation loop length (seconds)         |
-| `--seed`                 | day-of-year      | deterministic PRNG seed                 |
-| `--out`                  | `dist`           | output directory                        |
-| `--demo`                 | —                | use synthetic data instead of the API   |
+Config resolves in layers, later wins: **defaults → `robot.config.json` → CLI flags**.
 
-## Automated daily updates
+| Flag                     | Default            | Notes                                          |
+| ------------------------ | ------------------ | ---------------------------------------------- |
+| `--config`               | `robot.config.json`| path to a JSON config file                     |
+| `--user`, `--username`   | `$GITHUB_USERNAME` | GitHub login                                   |
+| `--behavior`             | `escape`           | see table above                                |
+| `--planner`              | `astar`            | `astar` \| `dijkstra`                          |
+| `--beams`                | `40`               | LIDAR beams per 360° scan                      |
+| `--range`                | `5.5`              | LIDAR range in cells                           |
+| `--duration`             | `14`               | animation loop length (seconds)                |
+| `--seed`                 | day-of-year        | deterministic PRNG seed                        |
+| `--out`                  | `dist`             | output directory                               |
+| `--demo`                 | —                  | use synthetic data instead of the API          |
+
+## How the automation works
 
 [`.github/workflows/generate.yml`](.github/workflows/generate.yml) runs daily
-(and on manual dispatch), regenerates both themes with the built-in
-`GITHUB_TOKEN`, and force-pushes `robot-dark.svg` / `robot-light.svg` to an
-`output` branch. Your README's `<picture>` block points at that branch's raw
-URLs, so your profile stays fresh without touching `main`'s history.
+(and on manual dispatch, and on pushes that touch `src/` or `robot.config.json`).
+It regenerates both themes for the repo owner's graph using the built-in
+`GITHUB_TOKEN`, then force-pushes `robot-dark.svg` / `robot-light.svg` to an
+orphan `output` branch — so your default branch history stays clean and your
+README always points at a stable, always-fresh URL.
 
-To use it on your own profile:
+Because the username comes from `github.repository_owner`, the same code works
+unchanged for every fork. See [**Use it on your own profile**](#use-it-on-your-own-profile) above.
 
-1. Fork/copy this repo (a repo named after your username works well for a
-   profile README).
-2. Enable Actions, then **Run workflow** once (Actions tab) to seed the
-   `output` branch.
-3. Replace `OWNER/REPO` in the `<picture>` block above with your own.
+> Maintainer tip: enable **Settings ▸ Template repository** so others get a
+> clean **Use this template** button instead of a fork tied to your history.
 
 ## License
 

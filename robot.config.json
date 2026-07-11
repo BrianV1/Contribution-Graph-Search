@@ -1,0 +1,14 @@
+{
+  "$schema": "./robot.config.schema.json",
+  "behavior": "escape",
+  "planner": "astar",
+  "lidar": {
+    "beamCount": 40,
+    "range": 5.5
+  },
+  "motion": {
+    "durationSeconds": 14,
+    "lidarSamples": 44,
+    "allowDiagonal": true
+  }
+}

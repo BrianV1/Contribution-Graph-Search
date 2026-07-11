@@ -8,20 +8,22 @@ on:
   # Every day at 03:17 UTC (offset from the top of the hour to dodge cron spikes).
   schedule:
     - cron: '17 3 * * *'
-  # Manual trigger from the Actions tab, with knobs for behavior/planner/theme.
+  # Manual trigger from the Actions tab. Leave inputs blank to use
+  # robot.config.json; fill one in to override it for a single run.
   workflow_dispatch:
     inputs:
       behavior:
-        description: 'escape | explore | wander | patrol | wall_follow'
-        default: 'escape'
+        description: 'Override behavior: escape | explore | wander | patrol | wall_follow'
+        default: ''
       planner:
-        description: 'astar | dijkstra'
-        default: 'astar'
-  # Regenerate whenever the generator code changes on the default branch.
+        description: 'Override planner: astar | dijkstra'
+        default: ''
+  # Regenerate whenever the generator code or config changes on the default branch.
   push:
     branches: [main]
     paths:
       - 'src/**'
+      - 'robot.config.json'
       - 'package.json'
       - 'tsconfig.json'
       - '.github/workflows/generate.yml'
@@ -58,13 +60,18 @@ jobs:
           # The built-in token has the read:user scope needed for the
           # contributions GraphQL query. No PAT required for your own graph.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Always visualise the fork/repo owner's graph — this is what makes
+          # the template "just work" for anyone who forks it.
           GITHUB_USERNAME: ${{ github.repository_owner }}
+          INPUT_BEHAVIOR: ${{ github.event.inputs.behavior }}
+          INPUT_PLANNER: ${{ github.event.inputs.planner }}
         run: |
-          npx tsx src/index.ts \
-            --user "$GITHUB_USERNAME" \
-            --behavior "${{ github.event.inputs.behavior || 'escape' }}" \
-            --planner "${{ github.event.inputs.planner || 'astar' }}" \
-            --out dist
+          # robot.config.json is the source of truth; a dispatch input, if
+          # provided, overrides it for this run only.
+          ARGS=(--user "$GITHUB_USERNAME" --config robot.config.json --out dist)
+          [ -n "$INPUT_BEHAVIOR" ] && ARGS+=(--behavior "$INPUT_BEHAVIOR")
+          [ -n "$INPUT_PLANNER" ] && ARGS+=(--planner "$INPUT_PLANNER")
+          npx tsx src/index.ts "${ARGS[@]}"
 
       - name: Publish to output branch
         run: |

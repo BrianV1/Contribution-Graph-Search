@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Contribution-Graph Search config",
+  "description": "Customize the robot animation. All fields are optional; omitted values fall back to sensible defaults. The GitHub username is taken from the repository owner automatically, so you normally do not set it here.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "username": {
+      "type": "string",
+      "description": "Override the GitHub login to visualise. Defaults to the repository owner in CI."
+    },
+    "behavior": {
+      "type": "string",
+      "enum": ["escape", "explore", "wander", "patrol", "wall_follow"],
+      "description": "escape: reach the farthest-right cell. explore: coverage tour. wander: random walk. patrol: perimeter loop. wall_follow: left-hand-rule reactive navigation."
+    },
+    "planner": {
+      "type": "string",
+      "enum": ["astar", "dijkstra"],
+      "description": "Path-planning algorithm (ignored by the reactive wall_follow behavior)."
+    },
+    "lidar": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "beamCount": {
+          "type": "integer",
+          "minimum": 6,
+          "maximum": 120,
+          "description": "Beams per 360 degree scan. Higher = smoother scan polygon, larger SVG."
+        },
+        "range": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 12,
+          "description": "Sensing range in grid cells."
+        }
+      }
+    },
+    "motion": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "durationSeconds": {
+          "type": "number",
+          "minimum": 4,
+          "maximum": 60,
+          "description": "Total animation loop length."
+        },
+        "lidarSamples": {
+          "type": "integer",
+          "minimum": 6,
+          "maximum": 120,
+          "description": "LIDAR scans computed across the loop (animation frames). Higher = smoother, larger SVG."
+        },
+        "allowDiagonal": {
+          "type": "boolean",
+          "description": "Allow 8-connected diagonal movement (corner-cutting is always forbidden)."
+        }
+      }
+    },
+    "seed": {
+      "type": "integer",
+      "description": "Fixed PRNG seed. Omit to vary daily (day-of-year), which keeps wander/explore fresh."
+    }
+  }
+}
