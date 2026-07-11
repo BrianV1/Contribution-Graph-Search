@@ -68,10 +68,13 @@ jobs:
 
       - name: Publish to output branch
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Set identity globally so it also applies to the fresh repo we
+          # `git init` inside publish/ (a local config on the workspace repo
+          # would not be inherited there).
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Build the output branch content in a clean worktree.
+          # Build the output branch content in a clean, orphan repo.
           mkdir -p publish
           cp dist/robot-dark.svg publish/
           cp dist/robot-light.svg publish/

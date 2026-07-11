@@ -320,48 +320,17 @@ function hud(
     }
   }
   const routeLen = sim.route.length;
-  const goal = sim.segments[sim.segments.length - 1]?.goal;
-
-  const bracket = (x: number, y: number, sx: number, sy: number): string =>
-    `<path d="M${f(x + 12 * sx)} ${f(y)} H${f(x)} V${f(y + 12 * sy)}" fill="none" ` +
-    `stroke="${theme.hud}" stroke-width="1.2"/>`;
-
-  const corners =
-    bracket(10, 10, 1, 1) +
-    bracket(width - 10, 10, -1, 1) +
-    bracket(10, height - 10, 1, -1) +
-    bracket(width - 10, height - 10, -1, -1);
 
   const titleY = 30;
-  const subY = 48;
   const barY = height - 26;
 
   return `<g>
-    ${corners}
     <text x="26" y="${titleY}" fill="${theme.robotAccent}" font-size="15" font-weight="700"
           letter-spacing="2">CONTRIBUTION-GRAPH SLAM</text>
-    <text x="26" y="${subY}" fill="${theme.hud}" font-size="10" letter-spacing="1">${escapeXml(
-      `@${config.username}  ·  ${
-        config.behavior === 'wall_follow' ? 'REACTIVE CTRL' : `${config.planner.toUpperCase()} PLANNER`
-      }  ·  LIDAR ${config.lidar.beamCount}× r${config.lidar.range}`,
-    )}</text>
-
-    <g transform="translate(${width - 26}, ${titleY})" text-anchor="end">
-      <circle cx="-118" cy="-4" r="3.5" fill="${theme.goal}" filter="url(#glow)">
-        <animate attributeName="opacity" dur="1.1s" repeatCount="indefinite" values="1;0.2;1"/>
-      </circle>
-      <text x="-108" y="0" fill="${theme.hud}" font-size="10" text-anchor="start"
-            letter-spacing="1">LIVE SCAN</text>
-    </g>
-    <text x="${width - 26}" y="${subY}" fill="${theme.hudDim}" font-size="10" text-anchor="end"
-          letter-spacing="1">${escapeXml(sim.label)}</text>
 
     <line x1="26" y1="${barY - 12}" x2="${width - 26}" y2="${barY - 12}" stroke="${theme.hudDim}" stroke-width="1"/>
     <text x="26" y="${barY}" fill="${theme.hud}" font-size="10" letter-spacing="0.5">${escapeXml(
       `GRID ${sim.grid.width}×${sim.grid.height}   OBSTACLES ${obstacles}   FREE ${free}   NODES ${sim.visitedOrder.length}   ROUTE ${routeLen}`,
-    )}</text>
-    <text x="${width - 26}" y="${barY}" fill="${theme.hud}" font-size="10" text-anchor="end" letter-spacing="0.5">${escapeXml(
-      goal ? `GOAL (${goal.col},${goal.row})   STATUS: NOMINAL` : 'STATUS: NOMINAL',
     )}</text>
 
     <rect x="26" y="${barY + 4}" width="${width - 52}" height="2" rx="1" fill="${theme.hudDim}"/>
