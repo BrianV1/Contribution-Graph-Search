@@ -1,0 +1,84 @@
+name: Generate contribution-graph animation
+
+# Regenerates the animated SVGs daily and publishes them to the `output`
+# branch, so your README can point at a stable, always-fresh URL without ever
+# cluttering your default branch's history.
+
+on:
+  # Every day at 03:17 UTC (offset from the top of the hour to dodge cron spikes).
+  schedule:
+    - cron: '17 3 * * *'
+  # Manual trigger from the Actions tab, with knobs for behavior/planner/theme.
+  workflow_dispatch:
+    inputs:
+      behavior:
+        description: 'escape | explore | wander | patrol | wall_follow'
+        default: 'escape'
+      planner:
+        description: 'astar | dijkstra'
+        default: 'astar'
+  # Regenerate whenever the generator code changes on the default branch.
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'tsconfig.json'
+      - '.github/workflows/generate.yml'
+
+# Only one generation at a time; cancel superseded runs.
+concurrency:
+  group: generate-animation
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Generate SVGs
+        env:
+          # The built-in token has the read:user scope needed for the
+          # contributions GraphQL query. No PAT required for your own graph.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_USERNAME: ${{ github.repository_owner }}
+        run: |
+          npx tsx src/index.ts \
+            --user "$GITHUB_USERNAME" \
+            --behavior "${{ github.event.inputs.behavior || 'escape' }}" \
+            --planner "${{ github.event.inputs.planner || 'astar' }}" \
+            --out dist
+
+      - name: Publish to output branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Build the output branch content in a clean worktree.
+          mkdir -p publish
+          cp dist/robot-dark.svg publish/
+          cp dist/robot-light.svg publish/
+
+          cd publish
+          git init -q
+          git checkout -q -b output
+          git add robot-dark.svg robot-light.svg
+          git commit -q -m "chore: regenerate animation ($(date -u +%Y-%m-%dT%H:%MZ))"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" output
